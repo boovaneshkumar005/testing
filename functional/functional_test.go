@@ -8,6 +8,7 @@ import (
 	"gotesting/repository"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,4 +35,24 @@ func TestFullUserFlow(t *testing.T) {
 	var fetchedUser repository.User
 	json.NewDecoder(wGet.Body).Decode(&fetchedUser)
 	assert.Equal(t, "FunctionalDBUser", fetchedUser.Name)
+}
+
+// Benchmark for the full user flow
+func BenchmarkFullUserFlow(b *testing.B) {
+	config.InitDB()
+	defer config.CloseDB()
+
+	for i := 0; i < b.N; i++ {
+		// Add user
+		newUser := repository.User{ID: i, Name: "BenchmarkUser"}
+		body, _ := json.Marshal(newUser)
+		req := httptest.NewRequest(http.MethodPost, "/user", bytes.NewReader(body))
+		w := httptest.NewRecorder()
+		handler.AddUserHandler(w, req)
+
+		// Get user
+		reqGet := httptest.NewRequest(http.MethodGet, "/user?id="+strconv.Itoa(i), nil)
+		wGet := httptest.NewRecorder()
+		handler.GetUserHandler(wGet, reqGet)
+	}
 }
